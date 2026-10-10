@@ -1,0 +1,49 @@
+{
+  "name": "headroom",
+  "version": "1.0.0",
+  "description": "Rate-limit, context and prompt-cache meters above the prompt, with keep-warm and cache-miss warnings",
+  "author": {
+    "name": "Kevin Diaz",
+    "url": "https://github.com/diazkev314"
+  },
+  "repository": "https://github.com/diazkev314/headroom",
+  "license": "MIT",
+  "keywords": [
+    "usage",
+    "rate-limit",
+    "prompt-cache",
+    "keep-warm"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "cacheTtl": {
+      "type": "string",
+      "title": "Prompt cache TTL",
+      "description": "auto follows Claude Code's own rule (1h on a subscription, 5m on API keys or extra usage); or force 5m / 1h",
+      "default": "auto",
+      "options": [
+        "auto",
+        "5m",
+        "1h"
+      ]
+    },
+    "keepWarmHours": {
+      "type": "number",
+      "title": "Keep-warm duration (hours)",
+      "description": "How long keep-warm pings continue after your last message",
+      "default": 3
+    },
+    "autoKeepWarmTokens": {
+      "type": "number",
+      "title": "Auto keep-warm threshold (tokens)",
+      "description": "Turn keep-warm on by itself once the context reaches this size; 0 turns it off",
+      "default": 100000
+    },
+    "warnings": {
+      "type": "boolean",
+      "title": "Warnings",
+      "description": "Toast at 80% and 95% of a usage window and on a cache miss; notify before the cache expires",
+      "default": true
+    }
+  }
+}

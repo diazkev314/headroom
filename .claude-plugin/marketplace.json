@@ -1,0 +1,14 @@
+{
+  "name": "headroom",
+  "description": "Usage, context and prompt-cache meters for Claude Code, with keep-warm",
+  "owner": {
+    "name": "Kevin Diaz",
+    "url": "https://github.com/diazkev314"
+  },
+  "plugins": [
+    {
+      "name": "headroom",
+      "source": "./"
+    }
+  ]
+}
