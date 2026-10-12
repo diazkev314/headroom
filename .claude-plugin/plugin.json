@@ -1,6 +1,6 @@
 {
   "name": "headroom",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Rate-limit, context and prompt-cache meters above the prompt, with keep-warm and cache-miss warnings",
   "author": {
     "name": "Kevin Diaz",
