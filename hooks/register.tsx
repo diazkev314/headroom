@@ -20,7 +20,7 @@ const hasReply = atom({ plugin: 'headroom', key: 'hasReply' } as const, false)
 
 // Tokyo Night accents. label is the theme's error color, which follows light and dark mode; it is meant
 // to match the inline-code red (text-danger-000) in the desktop app.
-const HEX = { label: 'error', blue: '#7aa2f7', green: '#9ece6a', yellow: '#e0af68', red: '#f7768e', muted: '#565f89' }
+const HEX = { label: 'error', blue: '#7aa2f7', green: '#9ece6a', yellow: '#e0af68', red: '#f7768e', purple: '#bb9af7', muted: '#565f89' }
 
 const LABELS: Record<string, string> = { five_hour: '5h', seven_day: '7d', spend_limit: 'Spend' }
 const TTL_MS: Record<Ttl, number> = { '5m': 300_000, '1h': 3_600_000 }
@@ -263,6 +263,7 @@ export const register: Register = (on, options) => {
     const warmOn = await read($, keepWarm)
     const refreshCount = await read($, refreshes)
     const known = await read($, ttl)
+    const isReplied = await read($, hasReply)
     const span = TTL_MS[known ?? '5m']
     const left = last === null ? 0 : Math.max(0, last + span - at)
     const isSvg = e.surface !== 'terminal'
@@ -338,7 +339,13 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="row" alignItems="center" justifyContent="space-between" width="100%" gap={2} flexWrap="nowrap">
-        {meters.length ? meters : <Text color="inactive">Limits —</Text>}
+        {meters.length ? (
+          meters
+        ) : isReplied ? (
+          <Text color="inactive">No plan limits</Text>
+        ) : (
+          <Text color={HEX.purple}>Limits load after first reply</Text>
+        )}
         {ctxMeter}
         <Box flexDirection="row" alignItems="center" gap={1} flexShrink={0}>
           <Text color={HEX.label}>{`Cache ${known ?? '…'}`}</Text>

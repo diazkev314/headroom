@@ -75,6 +75,11 @@ async function cacheLabel($: any): Promise<string | undefined> {
 test('a signed-in session shows 1h before the first reply', async ($, on) => {
   await start($, on, 'bearer')
   expect(await cacheLabel($)).toBe('Cache 1h')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'headroom', surface, component: 'AbovePrompt', props: {} as never })
+    expect(await ui.find({ type: 'Text', text: 'Limits load after first reply' })).toBeDefined()
+    await ui.unmount()
+  }
 })
 
 test('an API key shows 5m before the first reply', async ($, on) => {
@@ -87,6 +92,9 @@ test('an unknown credential waits, then settles on the first reply', async ($, o
   expect(await cacheLabel($)).toBe('Cache …')
   await s.reply()
   expect(await cacheLabel($)).toBe('Cache 5m')
+  const ui = await $.ui.mount({ plugin: 'headroom', surface: 'terminal', component: 'AbovePrompt', props: {} as never })
+  expect(await ui.find({ type: 'Text', text: 'No plan limits' })).toBeDefined()
+  await ui.unmount()
 })
 
 test('an unknown credential becomes 1h once plan limits arrive', async ($, on) => {
