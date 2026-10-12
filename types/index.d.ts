@@ -19,6 +19,8 @@ declare module 'claude-code' {
       isWarmDismissed: boolean
       expectRebuild: boolean
       warned: string[]
+      /** A main-thread turn has had an API response, so missing plan limits mean no subscription. */
+      hasReply: boolean
     }
   }
 }

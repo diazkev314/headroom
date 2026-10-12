@@ -16,6 +16,7 @@ const isAutoWarm = atom({ plugin: 'headroom', key: 'isAutoWarm' } as const, fals
 const isWarmDismissed = atom({ plugin: 'headroom', key: 'isWarmDismissed' } as const, false)
 const expectRebuild = atom({ plugin: 'headroom', key: 'expectRebuild' } as const, false)
 const warned = atom({ plugin: 'headroom', key: 'warned' } as const, [])
+const hasReply = atom({ plugin: 'headroom', key: 'hasReply' } as const, false)
 
 // Tokyo Night accents. label is the theme's error color, which follows light and dark mode; it is meant
 // to match the inline-code red (text-danger-000) in the desktop app.
@@ -56,20 +57,28 @@ let isWarning = true
 let pingTimer: { cancel: () => void } | null = null
 let expiryTimer: { cancel: () => void } | null = null
 let idleSince = 0
+let credential: 'bearer' | 'api-key' | null = null
 
 // Claude Code 2.1.294's rule for the main thread (bce/Nen in the binary): env and settings overrides
 // first, then 1h for a subscriber within plan limits, 5m for API keys or extra (overage) usage.
+// Plan limits only arrive with the first API response, so until then the session's credential decides:
+// an API key is 5m, a sign-in (bearer) 1h, anything else unknown. Once a reply came back without
+// limits, it is not a subscription: 5m.
 async function resolveTtl($: EngineInterface, rateLimits: Limit[]): Promise<void> {
-  let found: [Ttl, string]
+  let found: [Ttl | null, string]
   const fromEnv = await $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL')
   const fromSettings = ((await $.settings.read()) as Record<string, unknown>).promptCacheTtl
   const isSubscriber = rateLimits.length > 0
+  const isReplied = await read($, hasReply)
   if (forced) found = [forced, 'set in this mod’s options']
   else if (await $.env.get('FORCE_PROMPT_CACHING_5M')) found = ['5m', 'FORCE_PROMPT_CACHING_5M is set']
   else if (fromEnv === '5m' || fromEnv === '1h') found = [fromEnv, 'CLAUDE_CODE_PROMPT_CACHE_TTL is set']
   else if (fromSettings === '5m' || fromSettings === '1h') found = [fromSettings, 'promptCacheTtl in settings']
   else if (await $.env.get('ENABLE_PROMPT_CACHING_1H')) found = ['1h', 'ENABLE_PROMPT_CACHING_1H is set']
-  else if (!isSubscriber) found = ['5m', 'API key (no plan limits reported)']
+  else if (!isSubscriber && credential === 'api-key') found = ['5m', 'API key']
+  else if (!isSubscriber && isReplied) found = ['5m', 'no plan limits reported']
+  else if (!isSubscriber && credential === 'bearer') found = ['1h', 'signed in; plan limits not reported yet']
+  else if (!isSubscriber) found = [null, 'waiting for the first response']
   else if (rateLimits.some(l => l.percentUsed >= 100)) found = ['5m', 'extra usage past your plan limit']
   else found = ['1h', 'subscription within plan limits']
   await update($, ttl, () => found[0])
@@ -151,6 +160,11 @@ export const register: Register = (on, options) => {
   expiryTimer = null
 
   on('session.start', async ($, e, next) => {
+    try {
+      credential = (await $.session.authorize())?.kind ?? null
+    } catch {
+      credential = null
+    }
     const usage = await $.session.usage()
     await update($, limits, () => usage.rateLimits)
     await update($, context, () => usage.context)
@@ -170,8 +184,13 @@ export const register: Register = (on, options) => {
   on('session.measure', async ($, e, next) => {
     if (e.changed.includes('rateLimits')) {
       await update($, limits, () => e.rateLimits)
+      const before = await read($, ttl)
       await resolveTtl($, e.rateLimits)
       await warnLimits($, e.rateLimits)
+      if ((await read($, ttl)) !== before && !(await read($, isBusy))) {
+        await schedulePing($)
+        await scheduleExpiryNotice($)
+      }
     }
     if (e.changed.includes('context')) {
       await update($, context, () => e.context)
@@ -210,6 +229,13 @@ export const register: Register = (on, options) => {
       await update($, cacheAt, () => at)
       await update($, isBusy, () => false)
       await update($, refreshes, () => 0)
+      // The first API response settles whether plan limits exist; usage marks a turn that reached the API.
+      if (e.usage && !(await read($, hasReply))) {
+        await update($, hasReply, () => true)
+        const latest = (await $.session.usage()).rateLimits
+        await update($, limits, () => latest)
+        await resolveTtl($, latest)
+      }
 
       const size = (await read($, context))?.tokens ?? 0
       const shouldArm = autoWarmTokens > 0 && size >= autoWarmTokens

@@ -45,6 +45,8 @@ Claude Code doesn't expose the TTL to mods, so `auto` mirrors its own rule for t
 4. A Pro/Max subscription within its plan limits: 1 hour.
 5. An API key, or extra usage past the plan limit: 5 minutes.
 
+Plan limits only arrive with the first API response, so until then Headroom goes by how you're signed in: a claude.ai sign-in shows `Cache 1h`, an API key `Cache 5m`. If the credential can't be read (a gateway, Bedrock or Vertex), the band shows `Cache …` until the first reply, then 5 minutes if that reply reported no plan limits.
+
 ## Cost of keep-warm
 
 Each refresh reads your context from the cache at about 10% of the normal input cost, and counts toward your usage limit. A miss on a 1-hour cache re-writes the whole context at about 2×. So keep-warm pays off whenever you come back before it stops, and costs at most a few refreshes if you don't.
